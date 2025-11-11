@@ -37,11 +37,38 @@ async function run() {
         const servicesCollection = db.collection('services');
         const userInfoCollection = db.collection('userInfo');
 
+
+        //get all services
         app.get('/services', async (req, res) => {
             const result = await servicesCollection
                 .find().toArray();
             res.send(result);
         });
+
+        // GET /services/top-rated
+        app.get('/services/top-rated', async (req, res) => {
+            try {
+                const result = await servicesCollection
+                    .find()
+                    .sort({ ratings: -1 })
+                    .limit(6)
+                    .toArray();
+
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ error: "Failed to fetch top-rated services" });
+            }
+        });
+
+
+        // add services
+        app.post('/service', async (req, res) => {
+            const service = req.body;
+            // service.createdAt = new Date();
+            await servicesCollection.insertOne(service);
+            res.send({ success: true, service });
+        });
+
 
         app.get('/user/services', async (req, res) => {
             const email = req.query.email;
@@ -50,13 +77,14 @@ async function run() {
             res.send(services);
         });
 
+        // app.get('/user/services/:id', async (req, res) => {
+        //     const email = req.query.email;
+        //     const services = await servicesCollection
+        //         .find({ email }).toArray();
+        //     res.send(services);
+        // });
 
-        app.post('/services', async (req, res) => {
-            const service = req.body;
-            // service.createdAt = new Date();
-            await servicesCollection.insertOne(service);
-            res.send({ success: true, service });
-        });
+
 
         app.get('/userInfo', async (req, res) => {
             const result = await userInfoCollection
