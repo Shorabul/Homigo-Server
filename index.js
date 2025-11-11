@@ -45,7 +45,7 @@ async function run() {
             res.send(result);
         });
 
-        // GET /services/top-rated
+        // get 6 top rated services
         app.get('/services/top-rated', async (req, res) => {
             try {
                 const result = await servicesCollection
@@ -69,21 +69,22 @@ async function run() {
             res.send({ success: true, service });
         });
 
-
-        app.get('/user/services', async (req, res) => {
+        // get my services
+        app.get('/my-services', async (req, res) => {
             const email = req.query.email;
             const services = await servicesCollection
-                .find({ email }).toArray();
+                .find({
+                    providerEmail: email
+                }).toArray();
             res.send(services);
         });
 
-        // app.get('/user/services/:id', async (req, res) => {
-        //     const email = req.query.email;
-        //     const services = await servicesCollection
-        //         .find({ email }).toArray();
-        //     res.send(services);
-        // });
-
+        // delete services
+        app.delete('/services/:id', async (req, res) => {
+            const id = req.params.id;
+            const result = await servicesCollection.deleteOne({ _id: new ObjectId(id) });
+            res.send(result);
+        });
 
 
         app.get('/userInfo', async (req, res) => {
