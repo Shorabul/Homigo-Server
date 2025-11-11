@@ -38,9 +38,18 @@ async function run() {
         const userInfoCollection = db.collection('userInfo');
 
         app.get('/services', async (req, res) => {
-            const result = await servicesCollection.find().toArray();
+            const result = await servicesCollection
+                .find().toArray();
             res.send(result);
         });
+
+        app.get('/user/services', async (req, res) => {
+            const email = req.query.email;
+            const services = await servicesCollection
+                .find({ email }).toArray();
+            res.send(services);
+        });
+
 
         app.post('/services', async (req, res) => {
             const service = req.body;
@@ -50,7 +59,8 @@ async function run() {
         });
 
         app.get('/userInfo', async (req, res) => {
-            const result = await userInfoCollection.find().toArray();
+            const result = await userInfoCollection
+                .find().toArray();
             res.send(result);
         });
 
