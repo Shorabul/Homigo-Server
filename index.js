@@ -36,7 +36,7 @@ async function run() {
         const db = client.db('homigo_db');
         const servicesCollection = db.collection('services');
         const userInfoCollection = db.collection('userInfo');
-
+        bookingsCollection = db.collection("bookings");
 
         //get all services
         app.get('/services', async (req, res) => {
@@ -60,8 +60,49 @@ async function run() {
             }
         });
 
-        // get services Details
+        // get single service details
         app.get('/services/:id', async (req, res) => { const id = req.params.id; const result = await servicesCollection.findOne({ _id: new ObjectId(id) }); res.send(result); });
+
+        // Create booking
+        app.post("/bookings", async (req, res) => {
+            const booking = req.body;
+
+            // Restrict self-booking
+            const service = await servicesCollection.findOne({ _id: new ObjectId(booking.serviceId) });
+
+            if (service.providerEmail === booking.userEmail) {
+                return res.status(400).send({ error: "You cannot book your own service" });
+            }
+
+            booking.createdAt = new Date();
+            const result = await bookingsCollection.insertOne(booking);
+            res.send(result);
+        });
+        // // Create booking
+        // app.post("/bookings", async (req, res) => {
+        //     const booking = req.body;
+
+        //     // // Validate serviceId
+        //     // if (!booking.serviceId) {
+        //     //     return res.status(400).send({ error: "serviceId is required" });
+        //     // }
+
+        //     const service = await servicesCollection.findOne({ _id: new ObjectId(booking.serviceId) });
+
+        //     // if (!service) {
+        //     //     return res.status(404).send({ error: "Service not found" });
+        //     // }
+
+        //     // Restrict self-booking
+        //     if (service.providerEmail === booking.userEmail) {
+        //         return res.status(400).send({ error: "You cannot book your own service" });
+        //     }
+
+        //     booking.createdAt = new Date();
+        //     const result = await bookingsCollection.insertOne(booking);
+        //     res.send(result);
+        // });
+
 
         // add services
         app.post('/service', async (req, res) => {
