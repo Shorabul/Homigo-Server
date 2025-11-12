@@ -87,6 +87,13 @@ async function run() {
             res.send(result);
         });
 
+        // Cancel booking
+        app.delete("/bookings/:id", async (req, res) => {
+            const id = req.params.id;
+            const result = await bookingsCollection.deleteOne({ _id: new ObjectId(id) });
+            res.send(result);
+        });
+
         // add services
         app.post('/service', async (req, res) => {
             const service = req.body;
