@@ -36,7 +36,7 @@ async function run() {
         const db = client.db('homigo_db');
         const servicesCollection = db.collection('services');
         const userInfoCollection = db.collection('userInfo');
-        bookingsCollection = db.collection("bookings");
+        const bookingsCollection = db.collection("bookings");
 
         //get all services
         app.get('/services', async (req, res) => {
@@ -78,38 +78,22 @@ async function run() {
             const result = await bookingsCollection.insertOne(booking);
             res.send(result);
         });
-        // // Create booking
-        // app.post("/bookings", async (req, res) => {
-        //     const booking = req.body;
 
-        //     // // Validate serviceId
-        //     // if (!booking.serviceId) {
-        //     //     return res.status(400).send({ error: "serviceId is required" });
-        //     // }
-
-        //     const service = await servicesCollection.findOne({ _id: new ObjectId(booking.serviceId) });
-
-        //     // if (!service) {
-        //     //     return res.status(404).send({ error: "Service not found" });
-        //     // }
-
-        //     // Restrict self-booking
-        //     if (service.providerEmail === booking.userEmail) {
-        //         return res.status(400).send({ error: "You cannot book your own service" });
-        //     }
-
-        //     booking.createdAt = new Date();
-        //     const result = await bookingsCollection.insertOne(booking);
-        //     res.send(result);
-        // });
-
+        // Get bookings for a user
+        app.get("/my-bookings", async (req, res) => {
+            const email = req.query.email;
+            const result = await bookingsCollection
+                .find({ userEmail: email }).toArray();
+            res.send(result);
+        });
 
         // add services
         app.post('/service', async (req, res) => {
             const service = req.body;
             // service.createdAt = new Date();
-            await servicesCollection.insertOne(service);
-            res.send({ success: true, service });
+            const result = await servicesCollection
+                .insertOne(service);
+            res.send({ success: true, result });
         });
 
         // get my services
