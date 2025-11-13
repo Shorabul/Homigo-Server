@@ -1,6 +1,6 @@
 const express = require('express');
-const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
@@ -13,14 +13,10 @@ app.use(express.json());
 app.get('/', (req, res) => {
     res.send('Hello World!')
 })
-app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
-})
 
-
+// MongoDB connection
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@shworddb.sx7qtlu.mongodb.net/?appName=SHWordDB`;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -40,13 +36,32 @@ async function run() {
 
         //get all services
         app.get('/services', async (req, res) => {
+
             const result = await servicesCollection
                 .find().toArray();
+
             res.send(result);
         });
 
+        // get 3 services for banner
+        app.get('/services/banner', async (req, res) => {
+            try {
+                const result = await servicesCollection
+                    .find({}, { projection: { serviceImageURL: 1, serviceName: 1, description: 1 } })
+                    .limit(3)
+                    .toArray();
+
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ error: "Failed to fetch banner services" });
+            }
+        });
+
+
+
         // get 6 top rated services
         app.get('/services/top-rated', async (req, res) => {
+
             try {
                 const result = await servicesCollection
                     .find()
@@ -56,82 +71,124 @@ async function run() {
 
                 res.send(result);
             } catch (error) {
-                res.status(500).send({ error: "Failed to fetch top-rated services" });
+
+                res.status(500)
+                    .send({ error: "Failed to fetch top-rated services" });
             }
         });
 
         // get single service details
-        app.get('/services/:id', async (req, res) => { const id = req.params.id; const result = await servicesCollection.findOne({ _id: new ObjectId(id) }); res.send(result); });
+        app.get('/services/:id', async (req, res) => {
 
-        // Create booking
+            const id = req.params.id;
+            const result = await servicesCollection
+                .findOne({ _id: new ObjectId(id) });
+
+            res.send(result);
+        });
+
+        // create booking
         app.post("/bookings", async (req, res) => {
+
             const booking = req.body;
 
-            // Restrict self-booking
             const service = await servicesCollection.findOne({ _id: new ObjectId(booking.serviceId) });
 
             if (service.providerEmail === booking.userEmail) {
-                return res.status(400).send({ error: "You cannot book your own service" });
+                return res.status(400)
+                    .send({ error: "You cannot book your own service" });
             }
 
             booking.createdAt = new Date();
-            const result = await bookingsCollection.insertOne(booking);
-            res.send(result);
-        });
-
-        // Get bookings for a user
-        app.get("/my-bookings", async (req, res) => {
-            const email = req.query.email;
             const result = await bookingsCollection
-                .find({ userEmail: email }).toArray();
+                .insertOne(booking);
+
             res.send(result);
         });
 
-        // Cancel booking
+        // get bookings for a user
+        app.get("/my-bookings", async (req, res) => {
+
+            const email = req.query.email;
+
+            const result = await bookingsCollection
+                .find({ userEmail: email })
+                .toArray();
+
+            res.send(result);
+        });
+
+        // delete booking
         app.delete("/bookings/:id", async (req, res) => {
+
             const id = req.params.id;
-            const result = await bookingsCollection.deleteOne({ _id: new ObjectId(id) });
+
+            const result = await bookingsCollection
+                .deleteOne({ _id: new ObjectId(id) });
             res.send(result);
         });
 
         // add services
         app.post('/service', async (req, res) => {
+
             const service = req.body;
             // service.createdAt = new Date();
+
             const result = await servicesCollection
                 .insertOne(service);
+
             res.send({ success: true, result });
         });
 
         // get my services
         app.get('/my-services', async (req, res) => {
+
             const email = req.query.email;
+
             const services = await servicesCollection
                 .find({
                     providerEmail: email
                 }).toArray();
+
             res.send(services);
         });
 
         // delete services
         app.delete('/services/:id', async (req, res) => {
+
             const id = req.params.id;
+
             const result = await servicesCollection.deleteOne({ _id: new ObjectId(id) });
+
             res.send(result);
+        });
+
+        // PATCH /services/:id 
+        app.patch('/services/:id', async (req, res) => {
+            const id = req.params.id;
+            const updateDoc = { $set: req.body };
+            const result = await servicesCollection
+                .updateOne({ _id: new ObjectId(id) }, updateDoc); res.send(result);
         });
 
 
         app.get('/userInfo', async (req, res) => {
+
             const result = await userInfoCollection
                 .find().toArray();
+
             res.send(result);
         });
 
 
         await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        console.log("Backend running...");
     } finally {
         // await client.close();
     }
 }
 run().catch(console.dir);
+
+app.listen(port, () => {
+    console.log(`Server listening on port ${port}`)
+})
