@@ -1,5 +1,8 @@
 const express = require('express');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const admin = require("firebase-admin");
+
+const serviceAccount = require("./homigoFirebaseKey.json");
 const cors = require('cors');
 require('dotenv').config();
 
@@ -9,6 +12,10 @@ const port = process.env.PORT || 3000;
 //middleware
 app.use(cors());
 app.use(express.json());
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
 
 app.get('/', (req, res) => {
     res.send('Hello World!')
@@ -25,14 +32,35 @@ const client = new MongoClient(uri, {
     }
 });
 
+const verifyIdFierbaseToken = async (req, res, next) => {
+    const authorization = req.headers.authorization;
+    const token = authorization.split(' ')[1];
+
+    if (!token) {
+        res.status(401).send(
+            { message: "unauthorization access." }
+        );
+    }
+
+    try {
+        const decode = await admin.auth().verifyIdToken(token);
+        console.log(decode);
+        next();
+    } catch {
+        res.status(401).send(
+            { message: "unauthorization access." }
+        );
+    }
+}
+
 async function run() {
     try {
         await client.connect();
 
         const db = client.db('homigo_db');
         const servicesCollection = db.collection('services');
-        const userInfoCollection = db.collection('userInfo');
         const bookingsCollection = db.collection("bookings");
+        const usersCollection = db.collection('usersInfo');
 
         //get all services
         app.get('/services', async (req, res) => {
@@ -78,7 +106,7 @@ async function run() {
         });
 
         // get single service details
-        app.get('/services/:id', async (req, res) => {
+        app.get('/services/:id', verifyIdFierbaseToken, async (req, res) => {
 
             const id = req.params.id;
             const result = await servicesCollection
@@ -86,6 +114,28 @@ async function run() {
 
             res.send(result);
         });
+
+        // Example Express route
+        app.get('/services', async (req, res) => {
+            const { minPrice, maxPrice } = req.query;
+            const query = {};
+
+            if (minPrice || maxPrice) {
+                query.price = {};
+                if (minPrice) query.price.$gte = Number(minPrice);
+                if (maxPrice) query.price.$lte = Number(maxPrice);
+            }
+
+            try {
+                const services = await servicesCollection.find(query).toArray();
+                res.json(services);
+            } catch (error) {
+                console.error("Error fetching services:", error);
+                res.status(500).json({ error: "Failed to fetch services" });
+            }
+        });
+
+
 
         // create booking
         app.post("/bookings", async (req, res) => {
@@ -172,13 +222,73 @@ async function run() {
         });
 
 
-        app.get('/userInfo', async (req, res) => {
+        app.post("/users", async (req, res) => {
+            const user = req.body;
 
-            const result = await userInfoCollection
-                .find().toArray();
+            const existing = await usersCollection.findOne({ uid: user.uid });
+            if (existing) {
+                return res.json({ success: false, message: "User already exists" });
+            }
 
-            res.send(result);
+            const result = await usersCollection.insertOne(user);
+            res.json({ success: true, insertedId: result.insertedId });
         });
+
+
+        app.post("/services/:id/reviews", async (req, res) => {
+            const { id } = req.params;
+            const { userName, email, photoURL, rating, comment } = req.body;
+
+            const review = {
+                userName,
+                email,
+                photoURL,
+                rating: Number(rating),
+                comment,
+                createdAt: new Date(),
+            };
+
+            await servicesCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $push: { reviews: review } }
+            );
+
+            const service = await servicesCollection.findOne({ _id: new ObjectId(id) });
+            const ratings = service.reviews.map(r => r.rating);
+            const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+
+            await servicesCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: { averageRating: avg, ratings: ratings.length } }
+            );
+
+            res.json({ success: true });
+        });
+
+        // GET: All reviews with serviceName + customer info
+        app.get("/reviews", async (req, res) => {
+            try {
+                const services = await servicesCollection.find({}).toArray();
+
+                // Flatten reviews into one array with required fields
+                const allReviews = services.flatMap(service =>
+                    (service.reviews || []).map(r => ({
+                        serviceName: service.serviceName,
+                        userName: r.userName,
+                        comment: r.comment,
+                        rating: r.rating,
+                        photoURL: r.photoURL
+                    }))
+                );
+
+                res.json(allReviews);
+            } catch (error) {
+                console.error("Error fetching reviews:", error);
+                res.status(500).json({ error: "Failed to fetch reviews" });
+            }
+        });
+
+
 
 
         await client.db("admin").command({ ping: 1 });
