@@ -60,7 +60,7 @@ const verifyIdFierbaseToken = async (req, res, next) => {
 
 async function run() {
     try {
-        await client.connect();
+        // await client.connect();
 
         const db = client.db('homigo_db');
         const servicesCollection = db.collection('services');
@@ -295,7 +295,7 @@ async function run() {
 
 
 
-        await client.db("admin").command({ ping: 1 });
+        // await client.db("admin").command({ ping: 1 });
         console.log("Backend running...");
     } finally {
         // await client.close();
