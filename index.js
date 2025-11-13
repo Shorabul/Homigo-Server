@@ -143,7 +143,7 @@ async function run() {
 
 
         // create booking
-        app.post("/bookings", async (req, res) => {
+        app.post("/bookings", verifyIdFierbaseToken, async (req, res) => {
 
             const booking = req.body;
 
@@ -162,7 +162,7 @@ async function run() {
         });
 
         // get bookings for a user
-        app.get("/my-bookings", async (req, res) => {
+        app.get("/my-bookings", verifyIdFierbaseToken, async (req, res) => {
 
             const email = req.query.email;
 
@@ -174,7 +174,7 @@ async function run() {
         });
 
         // delete booking
-        app.delete("/bookings/:id", async (req, res) => {
+        app.delete("/bookings/:id", verifyIdFierbaseToken, async (req, res) => {
 
             const id = req.params.id;
 
@@ -184,7 +184,7 @@ async function run() {
         });
 
         // add services
-        app.post('/service', async (req, res) => {
+        app.post('/service', verifyIdFierbaseToken, async (req, res) => {
 
             const service = req.body;
             // service.createdAt = new Date();
@@ -196,7 +196,7 @@ async function run() {
         });
 
         // get my services
-        app.get('/my-services', async (req, res) => {
+        app.get('/my-services', verifyIdFierbaseToken, async (req, res) => {
 
             const email = req.query.email;
 
@@ -209,7 +209,7 @@ async function run() {
         });
 
         // delete services
-        app.delete('/services/:id', async (req, res) => {
+        app.delete('/services/:id', verifyIdFierbaseToken, async (req, res) => {
 
             const id = req.params.id;
 
@@ -239,7 +239,7 @@ async function run() {
             res.json({ success: true, insertedId: result.insertedId });
         });
 
-
+        //post reviews
         app.post("/services/:id/reviews", async (req, res) => {
             const { id } = req.params;
             const { userName, email, photoURL, rating, comment } = req.body;
@@ -270,12 +270,11 @@ async function run() {
             res.json({ success: true });
         });
 
-        // GET: All reviews with serviceName + customer info
+        // GET: All reviews with serviceName and customer info
         app.get("/reviews", async (req, res) => {
             try {
                 const services = await servicesCollection.find({}).toArray();
 
-                // Flatten reviews into one array with required fields
                 const allReviews = services.flatMap(service =>
                     (service.reviews || []).map(r => ({
                         serviceName: service.serviceName,
