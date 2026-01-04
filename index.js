@@ -60,12 +60,13 @@ const verifyIdFierbaseToken = async (req, res, next) => {
 
 async function run() {
     try {
-        // await client.connect();
+        await client.connect();
 
         const db = client.db('homigo_db');
         const servicesCollection = db.collection('services');
         const bookingsCollection = db.collection("bookings");
         const usersCollection = db.collection('usersInfo');
+        const blogsCollection = db.collection('blogs');
 
         //get all services
         app.get('/services', async (req, res) => {
@@ -111,7 +112,7 @@ async function run() {
         });
 
         // get single service details
-        app.get('/services/:id', verifyIdFierbaseToken, async (req, res) => {
+        app.get('/service/:id', async (req, res) => {
 
             const id = req.params.id;
             const result = await servicesCollection
@@ -293,9 +294,165 @@ async function run() {
         });
 
 
+        // ==================== BLOG ROUTES ====================
+
+        // GET: All blogs
+        app.get('/blogs', async (req, res) => {
+            try {
+                const blogs = await blogsCollection
+                    .find()
+                    .sort({ createdAt: -1 })
+                    .toArray();
+                res.send(blogs);
+            } catch (error) {
+                console.error('Error fetching blogs:', error);
+                res.status(500).send({ error: 'Failed to fetch blogs' });
+            }
+        });
+
+        // GET: Single blog by ID
+        app.get('/blogs/:id', async (req, res) => {
+            try {
+                const { id } = req.params;
+                const blog = await blogsCollection.findOne({ _id: new ObjectId(id) });
+
+                if (!blog) {
+                    return res.status(404).send({ error: 'Blog not found' });
+                }
+
+                res.send(blog);
+            } catch (error) {
+                console.error('Error fetching blog:', error);
+                res.status(500).send({ error: 'Failed to fetch blog' });
+            }
+        });
+
+        // POST: Create new blog
+        app.post('/blogs', verifyIdFierbaseToken, async (req, res) => {
+            try {
+                const blog = req.body;
+                blog.createdAt = new Date();
+
+                const result = await blogsCollection.insertOne(blog);
+                res.send({ success: true, insertedId: result.insertedId });
+            } catch (error) {
+                console.error('Error creating blog:', error);
+                res.status(500).send({ error: 'Failed to create blog' });
+            }
+        });
+
+        // GET: Blogs by category
+        app.get('/blogs/category/:category', async (req, res) => {
+            try {
+                const { category } = req.params;
+                const blogs = await blogsCollection
+                    .find({ category })
+                    .sort({ createdAt: -1 })
+                    .toArray();
+
+                res.send(blogs);
+            } catch (error) {
+                console.error('Error fetching blogs by category:', error);
+                res.status(500).send({ error: 'Failed to fetch blogs' });
+            }
+        });
+
+        // GET: Blogs by author email
+        app.get('/my-blogs', verifyIdFierbaseToken, async (req, res) => {
+            try {
+                const email = req.query.email;
+                const blogs = await blogsCollection
+                    .find({ authorEmail: email })
+                    .sort({ createdAt: -1 })
+                    .toArray();
+
+                res.send(blogs);
+            } catch (error) {
+                console.error('Error fetching user blogs:', error);
+                res.status(500).send({ error: 'Failed to fetch blogs' });
+            }
+        });
+
+        // PATCH: Update blog
+        app.patch('/blogs/:id', verifyIdFierbaseToken, async (req, res) => {
+            try {
+                const { id } = req.params;
+                const updateData = req.body;
+                updateData.updatedAt = new Date();
+
+                const result = await blogsCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $set: updateData }
+                );
+
+                if (result.matchedCount === 0) {
+                    return res.status(404).send({ error: 'Blog not found' });
+                }
+
+                res.send({ success: true, modifiedCount: result.modifiedCount });
+            } catch (error) {
+                console.error('Error updating blog:', error);
+                res.status(500).send({ error: 'Failed to update blog' });
+            }
+        });
+
+        // DELETE: Delete blog
+        app.delete('/blogs/:id', verifyIdFierbaseToken, async (req, res) => {
+            try {
+                const { id } = req.params;
+                const result = await blogsCollection.deleteOne({ _id: new ObjectId(id) });
+
+                if (result.deletedCount === 0) {
+                    return res.status(404).send({ error: 'Blog not found' });
+                }
+
+                res.send({ success: true, deletedCount: result.deletedCount });
+            } catch (error) {
+                console.error('Error deleting blog:', error);
+                res.status(500).send({ error: 'Failed to delete blog' });
+            }
+        });
+
+        // GET: Featured blogs (latest 3)
+        app.get('/blogs/featured/latest', async (req, res) => {
+            try {
+                const blogs = await blogsCollection
+                    .find()
+                    .sort({ createdAt: -1 })
+                    .limit(3)
+                    .toArray();
+
+                res.send(blogs);
+            } catch (error) {
+                console.error('Error fetching featured blogs:', error);
+                res.status(500).send({ error: 'Failed to fetch featured blogs' });
+            }
+        });
+
+        // GET: Search blogs by title or content
+        app.get('/blogs/search/:query', async (req, res) => {
+            try {
+                const { query } = req.params;
+                const blogs = await blogsCollection
+                    .find({
+                        $or: [
+                            { title: { $regex: query, $options: 'i' } },
+                            { summary: { $regex: query, $options: 'i' } },
+                            { content: { $regex: query, $options: 'i' } }
+                        ]
+                    })
+                    .sort({ createdAt: -1 })
+                    .toArray();
+
+                res.send(blogs);
+            } catch (error) {
+                console.error('Error searching blogs:', error);
+                res.status(500).send({ error: 'Failed to search blogs' });
+            }
+        });
 
 
-        // await client.db("admin").command({ ping: 1 });
+        await client.db("admin").command({ ping: 1 });
         console.log("Backend running...");
     } finally {
         // await client.close();
